@@ -49,40 +49,32 @@ void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 	}
 }
 
-int* calcula_media(vector<Pixel> bitmaps)
+void calcula_media(vector<Pixel> bitmaps, int m_RGB[])
 {
-	int mediaRGB[3] = { 0 };
-
 	for (Pixel pix : bitmaps)
 	{
-		mediaRGB[0] += pix.B;
-		mediaRGB[1] += pix.G;
-		mediaRGB[2] += pix.R;
+		m_RGB[0] += static_cast<int>(pix.B);
+		m_RGB[1] += static_cast<int>(pix.G);
+		m_RGB[2] += static_cast<int>(pix.R);
 	}
 
-	mediaRGB[0] /= bitmaps.size();
-	mediaRGB[1] /= bitmaps.size();
-	mediaRGB[2] /= bitmaps.size();
-
-	return mediaRGB;
+	m_RGB[0] /= bitmaps.size();
+	m_RGB[1] /= bitmaps.size();
+	m_RGB[2] /= bitmaps.size();
 }
 
-int* calcula_variancia(vector<Pixel> bitmaps, int* media_img)
+void calcula_variancia(vector<Pixel> bitmaps, int media_img[], int V_RGB[])
 {
-	int varianciaRGB[3] = { 0 };
-
 	for (Pixel pix : bitmaps)
 	{
-		varianciaRGB[0] += pow((pix.B - media_img[0]), 2);
-		varianciaRGB[1] += pow((pix.G - media_img[1]), 2);
-		varianciaRGB[2] += pow((pix.R - media_img[2]), 2);
+		V_RGB[0] += pow((static_cast<int>(pix.B) - media_img[0]), 2.0);
+		V_RGB[1] += pow((static_cast<int>(pix.G) - media_img[1]), 2.0);
+		V_RGB[2] += pow((static_cast<int>(pix.R) - media_img[2]), 2.0);
 	}
 
-	varianciaRGB[0] /= bitmaps.size();
-	varianciaRGB[1] /= bitmaps.size();
-	varianciaRGB[2] /= bitmaps.size();
-
-	return varianciaRGB;
+	V_RGB[0] /= bitmaps.size();
+	V_RGB[1] /= bitmaps.size();
+	V_RGB[2] /= bitmaps.size();
 }
 
 int main(int argc, char* argv[])
@@ -109,10 +101,15 @@ int main(int argc, char* argv[])
 
 	ler_bitmap(img_ref, img_ajuste);
 
-	int* mr = calcula_media(bitmap_ref);
-	int* ma = calcula_media(bitmap_ajuste);
-	int* Vr = calcula_variancia(bitmap_ref, mr);
-	int* Va = calcula_variancia(bitmap_ajuste, ma);
+	int mr[3] = { 0 };
+	int ma[3] = { 0 };
+	int Vr[3] = { 0 };
+	int Va[3] = { 0 };
+
+	calcula_media(bitmap_ref, mr);
+	calcula_media(bitmap_ajuste, ma);
+	calcula_variancia(bitmap_ref, mr, Vr);
+	calcula_variancia(bitmap_ajuste, ma, Va);
 
 	return 0;
 }
