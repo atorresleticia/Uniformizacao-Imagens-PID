@@ -26,12 +26,9 @@ struct BitMapInfoHeader
 
 struct Pixel
 {
-	int X;
-	int Y;
-	unsigned char R;
-	unsigned char G;
 	unsigned char B;
-	unsigned char reserved;
+	unsigned char G;
+	unsigned char R;
 };
 
 #pragma (pop)
