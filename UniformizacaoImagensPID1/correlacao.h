@@ -5,8 +5,8 @@ struct correlacao
 	double correlacao_B;
 	double correlacao_G;
 	double correlacao_R;
-	double x_inicial;
-	double y_inicial;
-	double x_final;
-	double y_final;
+	int x_inicial;
+	int y_inicial;
+	int x_final;
+	int y_final;
 };
