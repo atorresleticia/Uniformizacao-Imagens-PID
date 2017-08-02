@@ -19,16 +19,6 @@ Pixel pix;
 vector<correlacao> correlacoes;
 vector<Pixel> subimagem_ajuste;
 
-void imprime_img(int width, int height, vector<Pixel> img)
-{
-	for (int j = 0; j < height; j++)
-	{
-		for (int i = 0; i < width; i++)
-		{
-			cout << static_cast<int>(img.at(j * width + i).B) << " " << static_cast<int>(img.at(j * width + i).G) << " " << static_cast<int>(img.at(j * width + i).R) << endl;
-		}
-	}
-}
 
 void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 {
@@ -75,32 +65,31 @@ void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 	delete[] padding;
 }
 
-void calcula_media(vector<Pixel> bitmaps, double m_RGB[])
+void calcula_media_variancia(vector<Pixel> bitmaps, double m_RGB[], double V_RGB[])
 {
+	for (int i = 0; i < 3; i++)
+	{
+		m_RGB[i] = 0;
+		V_RGB[i] = 0;
+	}
+
 	for (Pixel pix : bitmaps)
 	{
 		m_RGB[0] += static_cast<int>(pix.B);
 		m_RGB[1] += static_cast<int>(pix.G);
 		m_RGB[2] += static_cast<int>(pix.R);
+		V_RGB[0] += pow((static_cast<int>(pix.B)), 2.0);
+		V_RGB[1] += pow((static_cast<int>(pix.G)), 2.0);
+		V_RGB[2] += pow((static_cast<int>(pix.R)), 2.0);
 	}
+
+	V_RGB[0] = (V_RGB[0] - pow(m_RGB[0], 2.0) / bitmaps.size()) / bitmaps.size();
+	V_RGB[1] = (V_RGB[1] - pow(m_RGB[1], 2.0) / bitmaps.size()) / bitmaps.size();
+	V_RGB[2] = (V_RGB[2] - pow(m_RGB[2], 2.0) / bitmaps.size()) / bitmaps.size();
 
 	m_RGB[0] /= bitmaps.size();
 	m_RGB[1] /= bitmaps.size();
 	m_RGB[2] /= bitmaps.size();
-}
-
-void calcula_variancia(vector<Pixel> bitmaps, double m_RGB[], double V_RGB[])
-{
-	for (Pixel pix : bitmaps)
-	{
-		V_RGB[0] += pow((static_cast<int>(pix.B) - m_RGB[0]), 2.0);
-		V_RGB[1] += pow((static_cast<int>(pix.G) - m_RGB[1]), 2.0);
-		V_RGB[2] += pow((static_cast<int>(pix.R) - m_RGB[2]), 2.0);
-	}
-
-	V_RGB[0] /= bitmaps.size();
-	V_RGB[1] /= bitmaps.size();
-	V_RGB[2] /= bitmaps.size();
 }
 
 void calcula_ganho_offset(double mr[], double ma[], double Vr[], double Va[], double ganho[], double offset[])
@@ -130,23 +119,53 @@ void calcula_correlacao(double mr[], double ma[], double p[], double Vr[], doubl
 
 	for (int i = 0; i < subimagem_ref.size(); i++)
 	{
-		//cout << static_cast<int>(subimagem_ajuste.at(i).B) << " " << static_cast<int>(subimagem_ref.at(i).B) << " == " << (static_cast<int>(subimagem_ref.at(i).B) - mr[0]) << "*" << (static_cast<int>(subimagem_ajuste.at(i).B) - ma[0]) << endl;
 		C[0] += (static_cast<int>(subimagem_ref.at(i).B) - mr[0]) * (static_cast<int>(subimagem_ajuste.at(i).B) - ma[0]);
 		C[1] += (static_cast<int>(subimagem_ref.at(i).G) - mr[1]) * (static_cast<int>(subimagem_ajuste.at(i).G) - ma[1]);
 		C[2] += (static_cast<int>(subimagem_ref.at(i).R) - mr[2]) * (static_cast<int>(subimagem_ajuste.at(i).R) - ma[2]);
-
 	}
-	//cout << "oi cabou" << endl;
-	//cout << C[0] << " " << C[1] << " " << C[2] << endl;
-	p[0] = (C[0] / subimagem_ref.size()) / sqrt(Vr[0] * Va[0]);
-	p[1] = (C[1] / subimagem_ref.size()) / sqrt(Vr[1] * Va[1]);
-	p[2] = (C[2] / subimagem_ref.size()) / sqrt(Vr[2] * Va[2]);
-	//cout << p[0] << " " << p[1] << " " << p[2] << endl;
+
+	if (Vr[0] == 0 && Va[0] == 0)
+	{
+		p[0] = 1;
+	}
+	else if (Vr[0] == 0 ^ Va[0] == 0)
+	{
+		p[0] = 0;
+	}
+	else
+	{
+		p[0] = (C[0] / subimagem_ref.size()) / sqrt(Vr[0] * Va[0]);
+	}
+	if (Vr[1] == 0 && Va[1] == 0)
+	{
+		p[1] = 1;
+	}
+	else if (Vr[1] == 0 ^ Va[1] == 0)
+	{
+		p[1] = 0;
+	}
+	else
+	{
+		p[1] = (C[1] / subimagem_ref.size()) / sqrt(Vr[1] * Va[1]);
+	}
+	if (Vr[2] == 0 && Va[2] == 0)
+	{
+		p[2] = 1;
+	}
+	else if (Vr[2] == 0 ^ Va[2] == 0)
+	{
+		p[2] = 0;
+	}
+	else
+	{
+		p[2] = (C[2] / subimagem_ref.size()) / sqrt(Vr[2] * Va[2]);		
+	}
+
 }
 
-void ler_subimagem(int x_inicio, int y_inicio, int x_final, int y_final, bool ajuste)
+void ler_subimagem(int x_inicio, int y_inicio, int x_final, int y_final)
 {
-	int width = ajuste ? img_ajuste_info.width : img_ref_info.width;
+	int width = img_ajuste_info.width;
 
 	for (int j = y_inicio; j <= y_final; j++)
 	{
@@ -157,10 +176,9 @@ void ler_subimagem(int x_inicio, int y_inicio, int x_final, int y_final, bool aj
 	}
 }
 
-void ler_subimagem_ref(int x_inicio, int y_inicio, int x_final, int y_final, bool ajuste)
+void ler_subimagem_ref(int x_inicio, int y_inicio, int x_final, int y_final)
 {
-
-	int width = ajuste ? img_ajuste_info.width : img_ref_info.width;
+	int width = img_ref_info.width;
 
 	for (int j = y_inicio; j <= y_final; j++)
 	{
@@ -173,11 +191,12 @@ void ler_subimagem_ref(int x_inicio, int y_inicio, int x_final, int y_final, boo
 
 void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final, double mr[], double ma[], double Vr[], double Va[])
 {
-	 double p[3] = {0};
+	double p[3] = {0};
 	int width = x_final - x_inicio;
 	int height = y_final - y_inicio;
 	correlacao C;
 	FILE* correlacao = fopen("correlações.txt", "w");
+	calcula_media_variancia(subimagem_ref, mr, Vr);
 
 	fprintf(correlacao, "SUBIMAGEM ->\t (%d, %d) a (%d, %d)\n\n", x_inicio, y_inicio, x_final, y_final);
 	fprintf(correlacao, "Casamentos da subimagem na segunda imagem:\n");
@@ -192,13 +211,8 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 				continue;
 			}
 
-			ler_subimagem(i, j, i + width, j + height, true);
-
-			/*for (Pixel element : subimagem_ajuste)
-			{
-				cout << static_cast<int>(element.B) << endl;
-			}
-			cout << "proxima int" << endl;*/
+			ler_subimagem(i, j, i + width, j + height);
+			calcula_media_variancia(subimagem_ajuste, ma, Va);
 			calcula_correlacao(mr, ma, p, Vr, Va);
 			subimagem_ajuste.clear();
 			if (p[0] != 0 && p[1] != 0 && p[2] != 0)
@@ -213,14 +227,13 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 				correlacoes.push_back(C);
 
 				fprintf(correlacao, "\t(%d, %d) a (%d, %d)\t\t\t", correlacoes.back().x_inicial, correlacoes.back().y_inicial,
-					correlacoes.back().x_final, correlacoes.back().y_final);
+				        correlacoes.back().x_final, correlacoes.back().y_final);
 				fprintf(correlacao, "{ %.3f, %.3f, %.3f } \n", correlacoes.back().correlacao_B,
-						correlacoes.back().correlacao_G, correlacoes.back().correlacao_R);
+				        correlacoes.back().correlacao_G, correlacoes.back().correlacao_R);
 			}
 		}
 	}
 }
-
 
 int main(int argc, char* argv[])
 {
@@ -256,33 +269,14 @@ int main(int argc, char* argv[])
 	double offset[3] = {0};
 
 	ler_bitmap(img_ref, img_ajuste);
-	calcula_media(bitmap_ref, mr);
-	calcula_media(bitmap_ajuste, ma);
-	calcula_variancia(bitmap_ref, mr, Vr);
-	calcula_variancia(bitmap_ajuste, ma, Va);
+	calcula_media_variancia(bitmap_ref, mr, Vr);
+	
+	calcula_media_variancia(bitmap_ajuste, ma, Va);
 	calcula_ganho_offset(mr, ma, Vr, Va, ganho, offset);
 
-	/*
-	cout << ma[0] << " " << ma[1] << " " << ma[2] << endl;
-	cout << mr[0] << " " << mr[1] << " " << mr[2] << endl;
-	cout << Va[0] << " " << Va[1] << " " << Va[2] << endl;
-	cout << Vr[0] << " " << Vr[1] << " " << Vr[2] << endl;
-	cout << ganho[0] << " " << ganho[1] << " " << ganho[2] << endl;
-	cout << offset[0] << " " << offset[1] << " " << offset[2] << endl;*/
-	
-	ler_subimagem_ref(x_inicio, y_inicio, x_final, y_final, false);
+	ler_subimagem_ref(x_inicio, y_inicio, x_final, y_final);
 	comparacao_sub_imagem(x_inicio, y_inicio, x_final, y_final, mr, ma, Vr, Va);
 
-	/*for (correlacao element : correlacoes)
-	{
-		cout << element.correlacao_B << " ";
-		cout << element.correlacao_G << " ";
-		cout << element.correlacao_R << endl;
-		cout << "(" << element.x_inicial << ", ";
-		cout << element.y_inicial << ")";
-		cout << "(" << element.x_final << ", ";
-		cout << element.y_final << ")" << endl;
-	}*/
 
 	return 0;
 }
