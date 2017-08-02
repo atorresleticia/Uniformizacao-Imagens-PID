@@ -17,8 +17,8 @@ Pixel pix;
 vector<Pixel> bitmap_ref;
 vector<Pixel> bitmap_ajuste;
 vector<Pixel> subimagem_ref;
-vector<correlacao> correlacoes;
 vector<Pixel> subimagem_ajuste;
+vector<correlacao> correlacoes;
 
 void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 {
@@ -27,8 +27,8 @@ void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 	fread(&img_ref_info, sizeof(BitMapInfoHeader), 1, img_ref);
 	fread(&img_ajuste_info, sizeof(BitMapInfoHeader), 1, img_ajuste);
 
-	FILE* tes = fopen("tes.txt", "w");
-	FILE* tese = fopen("tese.txt", "w");
+	FILE* ref_bitmap = fopen("bitmap_ref.txt", "w");
+	FILE* ajuste_bitmap = fopen("bitmap_ajuste.txt", "w");
 
 	int size_padding = (4 - img_ref_info.width * 3 % 4) % 4;
 	char* padding = new char[size_padding + 1];
@@ -41,7 +41,7 @@ void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 			fread(&pix.G, sizeof(char), 1, img_ref);
 			fread(&pix.R, sizeof(char), 1, img_ref);
 			bitmap_ref.push_back(pix);
-			fprintf(tes, "%d %d %d\n", pix.B, pix.G, pix.R);
+			fprintf(ref_bitmap, "%d %d %d\n", pix.B, pix.G, pix.R);
 		}
 		fread(padding, sizeof(char), size_padding, img_ref);
 	}
@@ -58,19 +58,21 @@ void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 			fread(&pix.G, sizeof(char), 1, img_ajuste);
 			fread(&pix.R, sizeof(char), 1, img_ajuste);
 			bitmap_ajuste.push_back(pix);
-			fprintf(tese, "%d %d %d\n", pix.B, pix.G, pix.R);
+			fprintf(ajuste_bitmap, "%d %d %d\n", pix.B, pix.G, pix.R);
 		}
 		fread(padding, sizeof(char), size_padding, img_ajuste);
 	}
 	delete[] padding;
+	fclose(ref_bitmap);
+	fclose(ajuste_bitmap);
 }
 
-void calcula_media_variancia(vector<Pixel> bitmaps, double m_RGB[], double V_RGB[])
+void calcula_media_variancia(vector<Pixel> bitmap, double m_RGB[], double V_RGB[])
 {
 	m_RGB[0] = m_RGB[1] = m_RGB[2] = 0;
 	V_RGB[0] = V_RGB[1] = V_RGB[2] = 0;
 
-	for (Pixel pix : bitmaps)
+	for (Pixel pix : bitmap)
 	{
 		m_RGB[0] += static_cast<int>(pix.B);
 		m_RGB[1] += static_cast<int>(pix.G);
@@ -80,13 +82,13 @@ void calcula_media_variancia(vector<Pixel> bitmaps, double m_RGB[], double V_RGB
 		V_RGB[2] += pow((static_cast<int>(pix.R)), 2.0);
 	}
 
-	V_RGB[0] = (V_RGB[0] - pow(m_RGB[0], 2.0) / bitmaps.size()) / bitmaps.size();
-	V_RGB[1] = (V_RGB[1] - pow(m_RGB[1], 2.0) / bitmaps.size()) / bitmaps.size();
-	V_RGB[2] = (V_RGB[2] - pow(m_RGB[2], 2.0) / bitmaps.size()) / bitmaps.size();
+	V_RGB[0] = (V_RGB[0] - pow(m_RGB[0], 2.0) / bitmap.size()) / bitmap.size();
+	V_RGB[1] = (V_RGB[1] - pow(m_RGB[1], 2.0) / bitmap.size()) / bitmap.size();
+	V_RGB[2] = (V_RGB[2] - pow(m_RGB[2], 2.0) / bitmap.size()) / bitmap.size();
 
-	m_RGB[0] /= bitmaps.size();
-	m_RGB[1] /= bitmaps.size();
-	m_RGB[2] /= bitmaps.size();
+	m_RGB[0] /= bitmap.size();
+	m_RGB[1] /= bitmap.size();
+	m_RGB[2] /= bitmap.size();
 }
 
 void calcula_ganho_offset(double mr[], double ma[], double Vr[], double Va[], double ganho[], double offset[])
@@ -102,15 +104,21 @@ void calcula_ganho_offset(double mr[], double ma[], double Vr[], double Va[], do
 
 void correcao(double ganho[], double offset[])
 {
+	FILE* imagem_uniformizada = fopen("bitmap_imagem_uniformizada.txt", "w");
+
+
 	for (Pixel pix : bitmap_ajuste)
 	{
 		pix.B = ganho[0] * static_cast<int>(pix.B) + offset[0];
 		pix.G = ganho[1] * static_cast<int>(pix.G) + offset[1];
 		pix.R = ganho[2] * static_cast<int>(pix.R) + offset[2];
+		fprintf(imagem_uniformizada, "%d %d %d\n", pix.B, pix.G, pix.R);
 	}
+
+	fclose(imagem_uniformizada);
 }
 
-void calcula_correlacao(double mr[], double ma[], double p[], double Vr[], double Va[])
+void calcula_correlacao(double mr[], double ma[], double Vr[], double Va[], double p[])
 {
 	double C[3] = {0};
 
@@ -195,6 +203,7 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 	int height = y_final - y_inicio;
 	correlacao C;
 	FILE* correlacao = fopen("correlacoes.txt", "w");
+
 	calcula_media_variancia(subimagem_ref, mr, Vr);
 
 	fprintf(correlacao, "SUBIMAGEM ->\t (%d, %d) a (%d, %d)\n\n", x_inicio, y_inicio, x_final, y_final);
@@ -212,7 +221,7 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 
 			ler_subimagem(i, j, i + width, j + height);
 			calcula_media_variancia(subimagem_ajuste, ma, Va);
-			calcula_correlacao(mr, ma, p, Vr, Va);
+			calcula_correlacao(mr, ma, Vr, Va, p);
 			subimagem_ajuste.clear();
 
 			if (p[0] != 0 && p[1] != 0 && p[2] != 0)
@@ -233,6 +242,7 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 			}
 		}
 	}
+	fclose(correlacao);
 }
 
 int main(int argc, char* argv[])
@@ -272,9 +282,11 @@ int main(int argc, char* argv[])
 	calcula_media_variancia(bitmap_ref, mr, Vr);
 	calcula_media_variancia(bitmap_ajuste, ma, Va);
 	calcula_ganho_offset(mr, ma, Vr, Va, ganho, offset);
+	correcao(ganho, offset);
 	ler_subimagem_ref(x_inicio, y_inicio, x_final, y_final);
-
 	comparacao_sub_imagem(x_inicio, y_inicio, x_final, y_final, mr, ma, Vr, Va);
 
+	fclose(img_ref);
+	fclose(img_ajuste);
 	return 0;
 }
