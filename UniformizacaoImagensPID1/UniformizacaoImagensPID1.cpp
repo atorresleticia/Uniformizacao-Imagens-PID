@@ -1,9 +1,9 @@
 #include "stdafx.h"
 #include "bitmap.h"
+#include "correlacao.h"
 #include <iostream>
 #include <vector>
 #include <string>
-#include "correlacao.h"
 #include <algorithm>
 
 using namespace std;
@@ -12,13 +12,13 @@ BitMapFileHeader img_ref_header;
 BitMapFileHeader img_ajuste_header;
 BitMapInfoHeader img_ref_info;
 BitMapInfoHeader img_ajuste_info;
+Pixel pix;
+
 vector<Pixel> bitmap_ref;
 vector<Pixel> bitmap_ajuste;
 vector<Pixel> subimagem_ref;
-Pixel pix;
 vector<correlacao> correlacoes;
 vector<Pixel> subimagem_ajuste;
-
 
 void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 {
@@ -67,11 +67,8 @@ void ler_bitmap(FILE* img_ref, FILE* img_ajuste)
 
 void calcula_media_variancia(vector<Pixel> bitmaps, double m_RGB[], double V_RGB[])
 {
-	for (int i = 0; i < 3; i++)
-	{
-		m_RGB[i] = 0;
-		V_RGB[i] = 0;
-	}
+	m_RGB[0] = m_RGB[1] = m_RGB[2] = 0;
+	V_RGB[0] = V_RGB[1] = V_RGB[2] = 0;
 
 	for (Pixel pix : bitmaps)
 	{
@@ -136,6 +133,7 @@ void calcula_correlacao(double mr[], double ma[], double p[], double Vr[], doubl
 	{
 		p[0] = (C[0] / subimagem_ref.size()) / sqrt(Vr[0] * Va[0]);
 	}
+
 	if (Vr[1] == 0 && Va[1] == 0)
 	{
 		p[1] = 1;
@@ -148,6 +146,7 @@ void calcula_correlacao(double mr[], double ma[], double p[], double Vr[], doubl
 	{
 		p[1] = (C[1] / subimagem_ref.size()) / sqrt(Vr[1] * Va[1]);
 	}
+
 	if (Vr[2] == 0 && Va[2] == 0)
 	{
 		p[2] = 1;
@@ -195,7 +194,7 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 	int width = x_final - x_inicio;
 	int height = y_final - y_inicio;
 	correlacao C;
-	FILE* correlacao = fopen("correlações.txt", "w");
+	FILE* correlacao = fopen("correlacoes.txt", "w");
 	calcula_media_variancia(subimagem_ref, mr, Vr);
 
 	fprintf(correlacao, "SUBIMAGEM ->\t (%d, %d) a (%d, %d)\n\n", x_inicio, y_inicio, x_final, y_final);
@@ -215,6 +214,7 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 			calcula_media_variancia(subimagem_ajuste, ma, Va);
 			calcula_correlacao(mr, ma, p, Vr, Va);
 			subimagem_ajuste.clear();
+
 			if (p[0] != 0 && p[1] != 0 && p[2] != 0)
 			{
 				C.correlacao_B = p[0];
@@ -226,10 +226,10 @@ void comparacao_sub_imagem(int x_inicio, int y_inicio, int x_final, int y_final,
 				C.y_final = j + height;
 				correlacoes.push_back(C);
 
-				fprintf(correlacao, "\t(%d, %d) a (%d, %d)\t\t\t", correlacoes.back().x_inicial, correlacoes.back().y_inicial,
-				        correlacoes.back().x_final, correlacoes.back().y_final);
+				fprintf(correlacao, "\t(%d, %d) a (%d, %d)\t\t\t", correlacoes.back().x_inicial, 
+					correlacoes.back().y_inicial, correlacoes.back().x_final, correlacoes.back().y_final);
 				fprintf(correlacao, "{ %.3f, %.3f, %.3f } \n", correlacoes.back().correlacao_B,
-				        correlacoes.back().correlacao_G, correlacoes.back().correlacao_R);
+					correlacoes.back().correlacao_G, correlacoes.back().correlacao_R);
 			}
 		}
 	}
@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
 
 	if (!img_ref)
 	{
-		cout << "Erro ao abrir a imagem referência" << endl;
+		cout << "Erro ao abrir a imagem referï¿½ncia" << endl;
 		exit(1);
 	}
 	if (!img_ajuste)
@@ -270,13 +270,11 @@ int main(int argc, char* argv[])
 
 	ler_bitmap(img_ref, img_ajuste);
 	calcula_media_variancia(bitmap_ref, mr, Vr);
-	
 	calcula_media_variancia(bitmap_ajuste, ma, Va);
 	calcula_ganho_offset(mr, ma, Vr, Va, ganho, offset);
-
 	ler_subimagem_ref(x_inicio, y_inicio, x_final, y_final);
-	comparacao_sub_imagem(x_inicio, y_inicio, x_final, y_final, mr, ma, Vr, Va);
 
+	comparacao_sub_imagem(x_inicio, y_inicio, x_final, y_final, mr, ma, Vr, Va);
 
 	return 0;
 }
